@@ -1,8 +1,8 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_database/models/contact_model.dart';
-import 'package:flutter_database/screens/add_contact.dart';
+import 'package:flutter_database/screens/add_contacts.dart';
+import 'package:flutter_database/screens/edit_contact.dart';
 
 class Contacts extends StatefulWidget {
   @override
@@ -10,84 +10,177 @@ class Contacts extends StatefulWidget {
 }
 
 class _ContactsState extends State<Contacts> {
-  Query _reference;
-
+  Query _ref;
+  DatabaseReference reference =
+      FirebaseDatabase.instance.reference().child('Contacts');
   @override
   void initState() {
+    // TODO: implement initState
     super.initState();
-    _reference = FirebaseDatabase.instance
+    _ref = FirebaseDatabase.instance
         .reference()
-        .child('contacts')
+        .child('Contacts')
         .orderByChild('name');
-        
-        
   }
 
-  List<ContactModel> contactList = [];
-  Widget _buildContactItem(ContactModel model) {
-    Color secondaryColor = getTypeColor(model.type);
-    return Container( 
-      padding: EdgeInsets.symmetric(horizontal: 15),
+  Widget _buildContactItem({Map contact}) {
+    Color typeColor = getTypeColor(contact['type']);
+    return Container(
       margin: EdgeInsets.symmetric(vertical: 10),
-      height: 100,
-      width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white),
+      padding: EdgeInsets.all(10),
+      height: 130,
+      color: Colors.white,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(mainAxisAlignment: MainAxisAlignment.start, children: [
-            Icon(Icons.person, size: 20, color: Theme.of(context).primaryColor),
-            SizedBox(
-              width: 6,
-            ),
-            Text(
-              model.name,
-              style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.w600),
-            ),
-          ]),
+          Row(
+            children: [
+              Icon(
+                Icons.person,
+                color: Theme.of(context).primaryColor,
+                size: 20,
+              ),
+              SizedBox(
+                width: 6,
+              ),
+              Text(
+                contact['name'],
+                style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
           SizedBox(
             height: 10,
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Icon(
                 Icons.phone_iphone,
-                size: 20,
                 color: Theme.of(context).accentColor,
+                size: 20,
               ),
               SizedBox(
                 width: 6,
               ),
               Text(
-                model.number,
+                contact['number'],
                 style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).accentColor,
-                ),
+                    fontSize: 16,
+                    color: Theme.of(context).accentColor,
+                    fontWeight: FontWeight.w600),
               ),
-              SizedBox(width: 20),
+              SizedBox(width: 15),
               Icon(
                 Icons.group_work,
+                color: typeColor,
                 size: 20,
-                color: secondaryColor,
               ),
               SizedBox(
                 width: 6,
               ),
               Text(
-                model.type,
-                style: TextStyle(fontSize: 16, color: secondaryColor),
+                contact['type'],
+                style: TextStyle(
+                    fontSize: 16,
+                    color: typeColor,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          SizedBox(
+            height: 15,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => EditContact(
+                                contactKey: contact['key'],
+                              )));
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.edit,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    SizedBox(
+                      width: 6,
+                    ),
+                    Text('Edit',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 20,
+              ),
+              GestureDetector(
+                onTap: () {
+                  _showDeleteDialog(contact: contact);
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete,
+                      color: Colors.red[700],
+                    ),
+                    SizedBox(
+                      width: 6,
+                    ),
+                    Text('Delete',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 20,
               ),
             ],
           )
         ],
       ),
     );
+  }
+
+  _showDeleteDialog({Map contact}) {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Delete ${contact['name']}'),
+            content: Text('Are you sure you want to delete?'),
+            actions: [
+              FlatButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel')),
+              FlatButton(
+                  onPressed: () {
+                    reference
+                        .child(contact['key'])
+                        .remove()
+                        .whenComplete(() => Navigator.pop(context));
+                  },
+                  child: Text('Delete'))
+            ],
+          );
+        });
   }
 
   @override
@@ -97,59 +190,45 @@ class _ContactsState extends State<Contacts> {
         title: Text('My Contacts'),
       ),
       body: Container(
-          color: Colors.white10,
-          height: double.infinity,
-          child: FirebaseAnimatedList(
-              query: _reference,
-              itemBuilder: (BuildContext context, DataSnapshot snapshot,
-                  Animation<double> animation, int index) {
-                    print('MUR SNAP ${snapshot.value}');
-                String name = snapshot.value['name'];
-                String number = snapshot.value['number'];
-                String type = snapshot.value['type'];
-                String key = snapshot.key;
-                ContactModel model = ContactModel(
-                    name: name, number: number, type: type, key: key);
-                return _buildContactItem(model);
-              })),
+        height: double.infinity,
+        child: FirebaseAnimatedList(
+          query: _ref,
+          itemBuilder: (BuildContext context, DataSnapshot snapshot,
+              Animation<double> animation, int index) {
+            Map contact = snapshot.value;
+            contact['key'] = snapshot.key;
+            return _buildContactItem(contact: contact);
+          },
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) {
-            return AddContact();
-          }));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) {
+              return AddContacts();
+            }),
+          );
         },
-        child: Icon(
-          Icons.add,
-          color: Colors.white,
-        ),
-        backgroundColor: Theme.of(context).accentColor,
+        child: Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  getContactsFromDb() {
-    DatabaseReference ref =
-        FirebaseDatabase.instance.reference().child('contacts');
-
-    ref.onChildAdded.listen((event) {
-      Map<String, String> map = event.snapshot.value;
-    });
-  }
-
   Color getTypeColor(String type) {
-    Color typeColor = Colors.red;
+    Color color = Theme.of(context).accentColor;
+
     if (type == 'Work') {
-      typeColor = Colors.brown;
+      color = Colors.brown;
     }
 
     if (type == 'Family') {
-      typeColor = Colors.green;
+      color = Colors.green;
     }
 
     if (type == 'Friends') {
-      typeColor = Colors.teal;
+      color = Colors.teal;
     }
-
-    return typeColor;
+    return color;
   }
 }
